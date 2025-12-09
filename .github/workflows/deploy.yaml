@@ -1,4 +1,4 @@
-﻿name: Build and Deploy to Kubernetes
+name: Build and Deploy to Kubernetes
 
 on:
   push:
@@ -8,13 +8,15 @@ on:
 
 env:
   REGISTRY: docker.io
-  IMAGE_NAME: ${{ secrets.DOCKER_USERNAME }}/todoapp
+  IMAGE_NAME: ${{ github.repository_owner }}/todoapp 
 
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
+    
     steps:
-    - uses: actions/checkout@v3
+    - name: Checkout code
+      uses: actions/checkout@v3
     
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v2
@@ -29,33 +31,44 @@ jobs:
       uses: docker/build-push-action@v4
       with:
         context: .
-        push: true
-        tags: ${{ env.IMAGE_NAME }}:latest
+        push: ${{ github.event_name != 'pull_request' }}
+        tags: |
+          ${{ env.IMAGE_NAME }}:latest
+          ${{ env.IMAGE_NAME }}:${{ github.sha }}
         cache-from: type=registry,ref=${{ env.IMAGE_NAME }}:buildcache
         cache-to: type=registry,ref=${{ env.IMAGE_NAME }}:buildcache,mode=max
 
-  deploy:
-    needs: build-and-push
+  # Опционально: тестирование
+  test:
     runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v3
+    needs: build-and-push
     
-    - name: Set up kubectl
-      uses: azure/setup-kubectl@v3
-      with:
-        version: 'latest'
-        
-    - name: Configure kubectl
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      
+    - name: Run tests
+      run: |
+        # Здесь можно добавить тесты
+        echo "Running tests..."
+        # Например, curl тесты или unit-тесты
+
+  # Опционально: деплой (если настроен доступ к кластеру)
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    
+    - name: Configure Kubeconfig
       run: |
         mkdir -p $HOME/.kube
         echo "${{ secrets.KUBE_CONFIG }}" | base64 --decode > $HOME/.kube/config
         
-    - name: Deploy MongoDB
+    - name: Deploy to Kubernetes
       run: |
-        kubectl apply -f k8s/mongo-deployment.yaml
-        kubectl rollout status deployment/mongodb-deployment
-        
-    - name: Deploy TodoApp
-      run: |
-        kubectl apply -f k8s/todoapp-deployment.yaml
+        kubectl apply -f k8s/
         kubectl rollout status deployment/todoapp-deployment
