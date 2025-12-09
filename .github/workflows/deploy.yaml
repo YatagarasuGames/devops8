@@ -8,7 +8,7 @@ on:
 
 env:
   REGISTRY: docker.io
-  IMAGE_NAME: ${{ github.repository_owner }}/todoapp 
+  IMAGE_NAME: yatagarasug/todoapp 
 
 jobs:
   build-and-push:
