@@ -1,0 +1,52 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: todoapp-config
+data:
+  mongodb-connection: "mongodb://mongodb-service:27017"
+  database-name: "TodoDb"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: todoapp-deployment
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: todoapp
+  template:
+    metadata:
+      labels:
+        app: todoapp
+    spec:
+      containers:
+      - name: todoapp
+        image: todoapp:latest  # ← ИЗМЕНИТЕ ЭТУ СТРОКУ!
+        imagePullPolicy: Never  # ← ДОБАВЬТЕ ЭТУ СТРОКУ!
+        ports:
+        - containerPort: 80
+        env:
+        - name: MongoDb__ConnectionString
+          valueFrom:
+            configMapKeyRef:
+              name: todoapp-config
+              key: mongodb-connection
+        - name: MongoDb__DatabaseName
+          valueFrom:
+            configMapKeyRef:
+              name: todoapp-config
+              key: database-name
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: todoapp-service
+spec:
+  type: LoadBalancer
+  selector:
+    app: todoapp
+  ports:
+  - port: 80
+    targetPort: 80
+    nodePort: 30007
